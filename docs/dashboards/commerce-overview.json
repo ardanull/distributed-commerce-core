@@ -1,0 +1,33 @@
+{
+  "title": "Commerce Core Overview",
+  "schemaVersion": 39,
+  "panels": [
+    {
+      "type": "timeseries",
+      "title": "HTTP Requests",
+      "targets": [
+        {
+          "expr": "http_requests_total"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Outbox Publishes",
+      "targets": [
+        {
+          "expr": "outbox_publish_total"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Consumer Dedupe Hits",
+      "targets": [
+        {
+          "expr": "consumer_dedupe_total"
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,25 @@
+openapi: 3.0.3
+info:
+  title: Distributed Commerce Core API
+  version: 1.0.0
+paths:
+  /v1/orders:
+    post:
+      summary: Create an order
+      requestBody:
+        required: true
+      responses:
+        '202':
+          description: Accepted
+  /healthz:
+    get:
+      summary: Liveness probe
+      responses:
+        '200':
+          description: ok
+  /readyz:
+    get:
+      summary: Readiness probe
+      responses:
+        '200':
+          description: ok

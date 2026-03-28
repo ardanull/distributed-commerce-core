@@ -1,0 +1,132 @@
+version: "3.9"
+
+services:
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: app
+      POSTGRES_PASSWORD: app
+      POSTGRES_DB: commerce
+    ports: ["5432:5432"]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U app -d commerce"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  redis:
+    image: redis:7
+    ports: ["6379:6379"]
+
+  nats:
+    image: nats:2.11-alpine
+    command: ["-js", "-m", "8222"]
+    ports:
+      - "4222:4222"
+      - "8222:8222"
+
+  tempo:
+    image: grafana/tempo:2.8.1
+    command: ["-config.file=/etc/tempo.yaml"]
+    volumes:
+      - ./deploy/docker/tempo.yaml:/etc/tempo.yaml
+    ports: ["3200:3200", "4317:4317"]
+
+  prometheus:
+    image: prom/prometheus:v3.5.0
+    volumes:
+      - ./deploy/docker/prometheus.yml:/etc/prometheus/prometheus.yml
+    ports: ["9090:9090"]
+
+  grafana:
+    image: grafana/grafana:12.1.1
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: admin
+    volumes:
+      - ./deploy/docker/grafana-provisioning:/etc/grafana/provisioning
+      - ./docs/dashboards:/var/lib/grafana/dashboards
+    ports: ["3000:3000"]
+    depends_on: [prometheus, tempo]
+
+  gateway:
+    build:
+      context: .
+      dockerfile: deploy/docker/Dockerfile
+      args:
+        APP_CMD: ./cmd/gateway
+    environment: &appenv
+      APP_NAME: gateway
+      HTTP_ADDR: :8080
+      POSTGRES_DSN: postgres://app:app@postgres:5432/commerce?sslmode=disable
+      NATS_URL: nats://nats:4222
+      REDIS_ADDR: redis:6379
+      OTEL_EXPORTER_OTLP_ENDPOINT: tempo:4317
+      TRACE_ENABLED: "true"
+    ports: ["8080:8080"]
+    depends_on: [postgres, redis, nats, tempo]
+
+  order-service:
+    build:
+      context: .
+      dockerfile: deploy/docker/Dockerfile
+      args:
+        APP_CMD: ./cmd/order-service
+    environment:
+      <<: *appenv
+      APP_NAME: order-service
+      HTTP_ADDR: :8081
+    ports: ["8081:8081"]
+    depends_on: [postgres, redis, nats, tempo]
+
+  payment-service:
+    build:
+      context: .
+      dockerfile: deploy/docker/Dockerfile
+      args:
+        APP_CMD: ./cmd/payment-service
+    environment:
+      <<: *appenv
+      APP_NAME: payment-service
+      HTTP_ADDR: :8082
+    ports: ["8082:8082"]
+    depends_on: [postgres, redis, nats, tempo]
+
+  inventory-service:
+    build:
+      context: .
+      dockerfile: deploy/docker/Dockerfile
+      args:
+        APP_CMD: ./cmd/inventory-service
+    environment:
+      <<: *appenv
+      APP_NAME: inventory-service
+      HTTP_ADDR: :8083
+    ports: ["8083:8083"]
+    depends_on: [postgres, redis, nats, tempo]
+
+  notification-service:
+    build:
+      context: .
+      dockerfile: deploy/docker/Dockerfile
+      args:
+        APP_CMD: ./cmd/notification-service
+    environment:
+      <<: *appenv
+      APP_NAME: notification-service
+      HTTP_ADDR: :8084
+    ports: ["8084:8084"]
+    depends_on: [postgres, redis, nats, tempo]
+
+  orchestrator-service:
+    build:
+      context: .
+      dockerfile: deploy/docker/Dockerfile
+      args:
+        APP_CMD: ./cmd/orchestrator-service
+    environment:
+      <<: *appenv
+      APP_NAME: orchestrator-service
+      HTTP_ADDR: :8085
+    ports: ["8085:8085"]
+    depends_on: [postgres, redis, nats, tempo]
